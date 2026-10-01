@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { ApiError, errorBody, providerError } from "./errors.js";
@@ -57,6 +57,7 @@ export function createServer(
     claude: new ClaudeProvider(),
     antigravity: new AntigravityProvider(),
   },
+  log: (line: string) => void = console.log,
 ) {
   const app = Fastify({
     logger: false,
@@ -68,7 +69,42 @@ export function createServer(
     providerNames.map((p) => [p, new Queue()]),
   ) as Record<ProviderName, Queue>;
   const active = new Map<AbortController, Promise<void>>();
-  app.setErrorHandler((error, _request, reply) => {
+  const calls = new WeakMap<
+    FastifyRequest,
+    { provider?: ProviderName; model?: string; error?: string }
+  >();
+  app.addHook("onRequest", async (request, reply) => {
+    const started = performance.now();
+    const metadata: {
+      provider?: ProviderName;
+      model?: string;
+      error?: string;
+    } = {};
+    calls.set(request, metadata);
+    let logged = false;
+    const complete = (completed: boolean) => {
+      if (logged) return;
+      logged = true;
+      log(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          method: request.method,
+          route: request.routeOptions.url ?? "unmatched",
+          ...metadata,
+          status: reply.raw.statusCode,
+          outcome: !completed
+            ? "disconnected"
+            : metadata.error
+              ? "error"
+              : "completed",
+          durationMs: Math.round(performance.now() - started),
+        }),
+      );
+    };
+    reply.raw.once("finish", () => complete(true));
+    reply.raw.once("close", () => complete(reply.raw.writableEnded));
+  });
+  app.setErrorHandler((error, request, reply) => {
     const e = error as { statusCode?: number };
     const publicError =
       error instanceof ApiError
@@ -78,6 +114,7 @@ export function createServer(
           : e.statusCode === 400
             ? new ApiError(400, "Invalid JSON request.", "invalid_json")
             : new ApiError(500, "Internal server error.", "internal_error");
+    calls.get(request)!.error = publicError.code;
     reply.code(publicError.status).send(errorBody(publicError));
   });
   app.setNotFoundHandler((_request, reply) =>
@@ -94,6 +131,10 @@ export function createServer(
   app.post("/v1/chat/completions", async (request, reply) => {
     const body = parseRequest(request.body);
     const model = resolveModel(body.model ?? "codex", config);
+    Object.assign(calls.get(request)!, {
+      provider: model.provider,
+      model: model.id,
+    });
     const header = request.headers["x-conversation-id"];
     if (
       header !== undefined &&
@@ -288,6 +329,7 @@ export function createServer(
       const publicError = timedOut
         ? new ApiError(504, "Provider request timed out.", "provider_timeout")
         : providerError(error);
+      calls.get(request)!.error = publicError.code;
       if (streaming) {
         if (!reply.raw.destroyed) {
           reply.raw.write(

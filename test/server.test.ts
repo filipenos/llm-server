@@ -32,14 +32,50 @@ async function fixture(t: any, custom?: Provider) {
     claude: new Fake(),
     antigravity: new Fake(),
   };
-  const app = createServer(root, config, providers);
+  const logs: string[] = [];
+  const app = createServer(root, config, providers, (line) => logs.push(line));
   t.after(async () => {
     await app.close();
     await rm(root, { recursive: true, force: true });
   });
-  return { root, config, providers, app, fake: fake as Fake };
+  return { root, config, providers, app, logs, fake: fake as Fake };
 }
 const body = { model: "codex", messages: [{ role: "user", content: "Oi" }] };
+
+test("request logs describe JSON and SSE calls without private input", async (t) => {
+  const { app, logs } = await fixture(t);
+  for (const stream of [false, true]) {
+    await app.inject({
+      method: "POST",
+      url: "/v1/chat/completions?secret=private-query",
+      headers: { authorization: "Bearer private-token" },
+      payload: {
+        model: "codex/test-model",
+        stream,
+        messages: [{ role: "user", content: "private-prompt" }],
+      },
+    });
+  }
+  await app.inject({
+    method: "POST",
+    url: "/v1/chat/completions",
+    payload: { model: "private-model", messages: body.messages },
+  });
+  assert.equal(logs.length, 3);
+  for (const line of logs.slice(0, 2)) {
+    const entry = JSON.parse(line);
+    assert.equal(entry.model, "codex/test-model");
+    assert.equal(entry.provider, "codex");
+    assert.equal(entry.route, "/v1/chat/completions");
+    assert.equal(entry.status, 200);
+    assert.equal(entry.outcome, "completed");
+    assert.ok(entry.durationMs >= 0);
+    assert.ok(!Number.isNaN(Date.parse(entry.time)));
+  }
+  assert.equal(JSON.parse(logs[2]).error, "invalid_model");
+  assert.equal(JSON.parse(logs[2]).status, 400);
+  assert.doesNotMatch(logs.join("\n"), /private-|Olá mundo|authorization/);
+});
 
 test("OpenAI JSON response, private persistence and resume after restart", async (t) => {
   const f = await fixture(t);
@@ -261,7 +297,7 @@ test("stream errors contain neither a success finish event nor DONE", async (t) 
       throw new Error("SECRET");
     },
   };
-  const { app } = await fixture(t, provider);
+  const { app, logs } = await fixture(t, provider);
   const response = await app.inject({
     method: "POST",
     url: "/v1/chat/completions",
@@ -271,6 +307,10 @@ test("stream errors contain neither a success finish event nor DONE", async (t) 
   assert.ok(response.body.includes("provider_error"));
   assert.ok(!response.body.includes("[DONE]"));
   assert.ok(!response.body.includes("SECRET"));
+  assert.equal(logs.length, 1);
+  assert.equal(JSON.parse(logs[0]).outcome, "error");
+  assert.equal(JSON.parse(logs[0]).error, "provider_error");
+  assert.ok(!logs[0].includes("SECRET"));
 });
 
 test("same-provider calls are serialized and see the latest native session", async (t) => {

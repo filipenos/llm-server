@@ -184,7 +184,7 @@ O histórico e suas roles são entregues aos agentes como contexto textual estru
 
 Parâmetros sem suporte, como `temperature`, `max_tokens`, ferramentas e imagens, retornam `400`. Não há Responses API, embeddings, áudio, API nativa Ollama, Anthropic Messages ou Gemini generateContent. O objetivo é compatibilidade de cliente para texto e streaming, não reprodução integral das APIs comerciais.
 
-Logs do servidor contêm somente endereço e caminho da configuração. Erros externos são convertidos em mensagens fixas, sem imprimir prompts, credenciais ou respostas. Os SDKs/CLIs mantêm seus próprios arquivos nativos conforme sua implementação.
+O terminal registra cada chamada em uma linha JSON com horário UTC, método, rota, provedor/modelo quando resolvido, status HTTP, resultado e duração em milissegundos. Em streaming, o status HTTP pode ser `200` mesmo com falha posterior; consulte `outcome` e `error`. Desconexões aparecem como `disconnected`. Não registra corpo, headers ou parâmetros da URL. Erros externos são convertidos em mensagens fixas, sem imprimir prompts, credenciais ou respostas. Os SDKs/CLIs mantêm seus próprios arquivos nativos conforme sua implementação.
 
 ## Verificar
 
