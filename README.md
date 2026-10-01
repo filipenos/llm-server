@@ -17,7 +17,7 @@ npm start
 
 Endereço padrão: `http://127.0.0.1:10434/v1`. O servidor escuta em `0.0.0.0`, aceitando conexões pelas interfaces de rede da máquina. Em outro host, use `http://<IP-do-servidor>:10434/v1`. Não há banco, Docker ou serviço externo adicional. Para desenvolvimento: `npm run dev`.
 
-O comando `npm run models` consulta os catálogos do Codex, Claude e Antigravity pelos clientes oficiais, sem gerar respostas. Salva os IDs em `~/.llm-server/config.json`. Os modelos retornados pelo catálogo ainda dependem dos limites e permissões da sua conta. O catálogo Antigravity é obtido com `agy models`. Reinicie o servidor após alterar a configuração.
+O comando `npm run models` consulta os catálogos do Codex, Claude e Antigravity pelos clientes oficiais, sem gerar respostas. Atualiza `~/.llm-server/config.json` e imprime os IDs completos para usar no campo `model`, preservando IDs existentes e padrões configurados. Os modelos retornados pelo catálogo ainda dependem dos limites e permissões da sua conta. O catálogo Antigravity é obtido com `agy models`. Se o servidor estiver rodando, reinicie-o para carregar a lista atualizada.
 
 ## Chamada rápida
 
@@ -27,9 +27,48 @@ curl http://localhost:10434/v1/chat/completions \
   -d '{"messages":[{"role":"user","content":"Olá!"}]}'
 ```
 
-Sem `model`, usa Codex Luna. Para escolher um provedor, acrescente `"model": "claude"`, `"model": "gemini"` ou um ID listado por `GET /v1/models`.
+Sem `model`, usa Codex Luna.
 
 Este servidor é destinado ao uso pessoal em uma rede de confiança. Não autentica requisições HTTP: `apiKey: "local"` nos exemplos é apenas o valor exigido pelo SDK cliente. A geração usa a internet e os limites das contas autenticadas nos provedores; os modelos não rodam nesta máquina.
+
+## Escolher outra LLM
+
+O endereço e o formato da requisição são os mesmos para todos os provedores. Troque apenas o campo `model`:
+
+| Campo `model`                 | Login utilizado     | Modelo escolhido                               |
+| ----------------------------- | ------------------- | ---------------------------------------------- |
+| omitido ou `"codex"`          | Codex               | Luna por padrão                                |
+| `"claude"`                    | Claude Code         | Padrão do Claude ou `defaultModel` configurado |
+| `"gemini"` ou `"antigravity"` | Antigravity (`agy`) | Padrão do AGY ou `defaultModel` configurado    |
+| `"codex/<ID>"`                | Codex               | ID específico do catálogo                      |
+| `"claude/<ID>"`               | Claude Code         | ID específico do catálogo                      |
+| `"antigravity/<ID>"`          | Antigravity (`agy`) | ID específico do catálogo                      |
+
+Para usar Claude:
+
+```sh
+curl http://localhost:10434/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"claude","messages":[{"role":"user","content":"Olá!"}]}'
+```
+
+Para usar o provedor do Gemini via AGY:
+
+```sh
+curl http://localhost:10434/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gemini","messages":[{"role":"user","content":"Olá!"}]}'
+```
+
+Para escolher um modelo exato, execute `npm run models` e copie um ID completo da saída, como `codex/gpt-6-luna`, para o campo `model`. O prefixo escolhe o cliente e o login: modelos Claude oferecidos pelo AGY também usam `antigravity/<ID>`. O alias `gemini` seleciona o provedor AGY; para garantir um modelo Gemini específico, use seu ID completo ou configure `providers.antigravity.defaultModel`.
+
+Com o servidor iniciado, consulte o catálogo carregado pela API:
+
+```sh
+curl http://localhost:10434/v1/models
+```
+
+No SDK OpenAI, use os mesmos valores: `model: "claude"`, `model: "gemini"` ou um ID completo copiado do catálogo. Para mudar de provedor ou modelo, inicie uma nova conversa sem `X-Conversation-Id`.
 
 ## Usar com o SDK OpenAI
 

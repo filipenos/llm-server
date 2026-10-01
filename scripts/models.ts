@@ -152,7 +152,10 @@ for (const [name, discover] of [
     ];
     validateConfig(candidate);
     config.providers[name].models = candidate.providers[name].models;
-    console.log(`${name}: ${models.length} models discovered`);
+    console.log(`\n${name}: ${models.length} models discovered`);
+    for (const model of config.providers[name].models) {
+      console.log(`  ${name}/${model}`);
+    }
   } catch (error) {
     console.log(`${name}: ${providerError(error).code}`);
     process.exitCode = 1;
@@ -164,4 +167,9 @@ await writeFile(temporary, JSON.stringify(config, null, 2) + "\n", {
   mode: 0o600,
 });
 await rename(temporary, target);
-console.log(`Updated ${target}. Restart llm-server to reload.`);
+console.log(
+  `\nUpdated ${target}. Existing model IDs and defaults are preserved.`,
+);
+console.log(
+  "Use a listed ID as the model field. Restart llm-server to reload.",
+);
