@@ -130,7 +130,7 @@ export function createServer(
   app.get("/v1/models", async () => listModels(config));
   app.post("/v1/chat/completions", async (request, reply) => {
     const body = parseRequest(request.body);
-    const model = resolveModel(body.model ?? "codex", config);
+    const model = resolveModel(body.model ?? "antigravity", config);
     Object.assign(calls.get(request)!, {
       provider: model.provider,
       model: model.id,

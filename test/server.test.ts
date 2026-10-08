@@ -507,8 +507,8 @@ test(
   },
 );
 
-test("omitted model defaults to Codex Luna for JSON and streaming", async (t) => {
-  const { app, fake } = await fixture(t);
+test("omitted model defaults to AGY Gemini Flash low for JSON and streaming", async (t) => {
+  const { app, providers } = await fixture(t);
   for (const stream of [false, true]) {
     const response = await app.inject({
       method: "POST",
@@ -516,9 +516,16 @@ test("omitted model defaults to Codex Luna for JSON and streaming", async (t) =>
       payload: { messages: body.messages, stream },
     });
     assert.equal(response.statusCode, 200);
-    assert.equal(fake.inputs.at(-1)?.model, "gpt-6-luna");
-    if (stream) assert.ok(response.body.includes('"model":"codex/gpt-6-luna"'));
-    else assert.equal(response.json().model, "codex/gpt-6-luna");
+    assert.equal(
+      (providers.antigravity as Fake).inputs.at(-1)?.model,
+      "gemini-3.8-flash-low",
+    );
+    if (stream)
+      assert.ok(
+        response.body.includes('"model":"antigravity/gemini-3.8-flash-low"'),
+      );
+    else
+      assert.equal(response.json().model, "antigravity/gemini-3.8-flash-low");
   }
   for (const model of [null, "", 12]) {
     assert.equal(

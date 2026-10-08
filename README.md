@@ -27,7 +27,7 @@ curl http://localhost:10434/v1/chat/completions \
   -d '{"messages":[{"role":"user","content":"Olá!"}]}'
 ```
 
-Sem `model`, usa Codex Luna.
+Sem `model`, usa Gemini 3.8 Flash low pelo AGY.
 
 Este servidor é destinado ao uso pessoal em uma rede de confiança. Não autentica requisições HTTP: `apiKey: "local"` nos exemplos é apenas o valor exigido pelo SDK cliente. A geração usa a internet e os limites das contas autenticadas nos provedores; os modelos não rodam nesta máquina.
 
@@ -37,7 +37,8 @@ O endereço e o formato da requisição são os mesmos para todos os provedores.
 
 | Campo `model`                 | Login utilizado     | Modelo escolhido                               |
 | ----------------------------- | ------------------- | ---------------------------------------------- |
-| omitido ou `"codex"`          | Codex               | Luna por padrão                                |
+| omitido                       | Antigravity (`agy`) | Gemini 3.8 Flash low                           |
+| `"codex"`                     | Codex               | Luna por padrão                                |
 | `"claude"`                    | Claude Code         | Padrão do Claude ou `defaultModel` configurado |
 | `"gemini"` ou `"antigravity"` | Antigravity (`agy`) | Padrão do AGY ou `defaultModel` configurado    |
 | `"codex/<ID>"`                | Codex               | ID específico do catálogo                      |
@@ -105,7 +106,7 @@ console.log(next.choices[0].message.content);
 
 Sem `X-Conversation-Id`, cada chamada cria uma nova conversa e aceita o histórico completo. Com o cabeçalho, envie somente mensagens `user` novas. O servidor retoma a sessão nativa e devolve o mesmo cabeçalho, inclusive em streaming. Esse cabeçalho é uma extensão local, não faz parte da API OpenAI.
 
-Sem o campo `model`, a chamada usa Codex Luna (`codex/gpt-6-luna`). Essa omissão é uma extensão local; a API OpenAI exige `model`. O alias `codex` também usa Luna por padrão. O padrão pode ser alterado em `providers.codex.defaultModel` de `config.json`.
+Sem o campo `model`, a chamada usa Gemini 3.8 Flash low (`antigravity/gemini-3.8-flash-low`). Essa omissão é uma extensão local; a API OpenAI exige `model`. O alias `codex` continua usando Luna por padrão. O modelo usado quando `model` é omitido acompanha `providers.antigravity.defaultModel` de `config.json`.
 
 Os aliases `codex`, `claude`, `antigravity` e `gemini` usam o padrão do provedor ou `defaultModel` da configuração. `gemini` aponta para Antigravity. Para escolher um modelo específico, use `provedor/modelo`, com um ID listado em `GET /v1/models`.
 
@@ -157,7 +158,11 @@ Configuração inicial:
       "models": ["gpt-6-luna"]
     },
     "claude": { "enabled": true, "models": [] },
-    "antigravity": { "enabled": true, "models": [] }
+    "antigravity": {
+      "enabled": true,
+      "defaultModel": "gemini-3.8-flash-low",
+      "models": ["gemini-3.8-flash-low"]
+    }
   }
 }
 ```

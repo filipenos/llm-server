@@ -13,7 +13,11 @@ export const defaultConfig: Config = {
       models: ["gpt-6-luna"],
     },
     claude: { enabled: true, models: [] },
-    antigravity: { enabled: true, models: [] },
+    antigravity: {
+      enabled: true,
+      defaultModel: "gemini-3.8-flash-low",
+      models: ["gemini-3.8-flash-low"],
+    },
   },
 };
 export function dataDirectory() {
